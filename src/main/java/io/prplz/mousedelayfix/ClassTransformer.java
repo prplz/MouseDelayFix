@@ -6,9 +6,13 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.JumpInsnNode;
+import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
 public class ClassTransformer implements IClassTransformer {
@@ -21,15 +25,29 @@ public class ClassTransformer implements IClassTransformer {
             ClassNode classNode = new ClassNode();
             classReader.accept(classNode, 0);
             for (MethodNode method : classNode.methods) {
-                if (FMLDeobfuscatingRemapper.INSTANCE.mapMethodName(classNode.name, method.name, method.desc).equals("func_70676_i")) {
+                String mappedMethodName = FMLDeobfuscatingRemapper.INSTANCE.mapMethodName(classNode.name, method.name, method.desc);
+                if (mappedMethodName.equals("func_70676_i") || mappedMethodName.equals("getLook")) {
                     System.out.println("Found getLook: " + method.name);
                     String entity = FMLDeobfuscatingRemapper.INSTANCE.unmap("net/minecraft/entity/Entity");
                     System.out.println("Found Entity: " + entity);
-                    method.instructions.clear();
-                    method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
-                    method.instructions.add(new VarInsnNode(Opcodes.FLOAD, 1));
-                    method.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, entity, method.name, method.desc)); // super.getLook(f);
-                    method.instructions.add(new InsnNode(Opcodes.ARETURN));
+                    String entityPlayerSP = FMLDeobfuscatingRemapper.INSTANCE.unmap("net/minecraft/client/entity/EntityPlayerSP");
+                    System.out.println("Found EntityPlayerSP: " + entityPlayerSP);
+                    /*
+                    if (this instanceof EntityPlayerSP) {
+                        return super.getLook(f);
+                    }
+                     */
+                    InsnList insnList = new InsnList();
+                    insnList.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                    insnList.add(new TypeInsnNode(Opcodes.INSTANCEOF, entityPlayerSP));
+                    LabelNode label = new LabelNode();
+                    insnList.add(new JumpInsnNode(Opcodes.IFEQ, label));
+                    insnList.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                    insnList.add(new VarInsnNode(Opcodes.FLOAD, 1));
+                    insnList.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, entity, method.name, method.desc));
+                    insnList.add(new InsnNode(Opcodes.ARETURN));
+                    insnList.add(label);
+                    method.instructions.insertBefore(method.instructions.getFirst(), insnList);
                     break;
                 }
             }
