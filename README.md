@@ -42,7 +42,7 @@ The fix added in 1.11 is to override `getLook` in the client player class (`Enti
  // EntityLivingBase
  public Vec3 getLook(float partialTicks) {
 +    if (this instanceof EntityPlayerSP) {
-+        return super.getLook(f);
++        return super.getLook(partialTicks);
 +    }
      if (partialTicks == 1.0F) {
          return this.getVectorForRotation(this.rotationPitch, this.rotationYawHead);
